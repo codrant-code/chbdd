@@ -4,6 +4,9 @@
   const SUPABASE_URL = "https://nwldvgafmyaagmyezena.supabase.co";
   const SUPABASE_KEY = "sb_publishable_gWMY1sQRn3fqip0JfAQPRQ_F79rlYyZ";
 
+  // =========================
+  // GET CUSTOMER ID
+  // =========================
   function getCustomerId() {
     if (document.currentScript) {
       const key = document.currentScript.getAttribute("data-key");
@@ -13,17 +16,21 @@
     const scriptTag = document.querySelector("script[data-key]");
     if (scriptTag) return scriptTag.getAttribute("data-key");
 
-    console.error("Missing customer_id");
+    console.error("❌ Missing customer_id");
     return null;
   }
 
+  // =========================
+  // LOAD SUPABASE
+  // =========================
   async function loadSupabase() {
     if (window.supabase) return;
-    await new Promise((res, rej) => {
+
+    await new Promise((resolve, reject) => {
       const s = document.createElement("script");
       s.src = "https://unpkg.com/@supabase/supabase-js@2";
-      s.onload = res;
-      s.onerror = rej;
+      s.onload = resolve;
+      s.onerror = reject;
       document.head.appendChild(s);
     });
   }
@@ -38,7 +45,9 @@
 
     let debounceTimer;
 
-    // ================= UI =================
+    // =========================
+    // STYLES
+    // =========================
     const style = document.createElement("style");
     style.innerHTML = `
       #cw-icon {
@@ -46,11 +55,12 @@
         bottom: 20px;
         right: 20px;
         background: #007bff;
-        color: white;
+        color: #fff;
         padding: 14px;
         border-radius: 50%;
         cursor: pointer;
         z-index: 9999;
+        font-size: 20px;
       }
 
       #cw-box {
@@ -60,17 +70,18 @@
         width: 320px;
         height: 420px;
         background: #fff;
-        border: 1px solid #ddd;
         border-radius: 12px;
+        border: 1px solid #ddd;
         display: none;
         flex-direction: column;
         z-index: 9999;
         font-family: Arial;
+        overflow: hidden;
       }
 
       #cw-header {
         padding: 10px;
-        color: white;
+        color: #fff;
         font-weight: bold;
       }
 
@@ -87,12 +98,22 @@
         max-width: 80%;
       }
 
-      .cw-user { background: #e6f0ff; margin-left: auto; text-align: right; }
-      .cw-bot { background: #f1f1f1; margin-right: auto; text-align: left; }
+      .cw-user {
+        background: #e6f0ff;
+        margin-left: auto;
+        text-align: right;
+      }
 
+      .cw-bot {
+        background: #f1f1f1;
+        margin-right: auto;
+      }
+
+      /* INPUT WRAPPER */
       #cw-input {
         display: flex;
         border-top: 1px solid #ccc;
+        position: relative;
       }
 
       #cw-input input {
@@ -105,22 +126,31 @@
       #cw-input button {
         padding: 10px;
         border: none;
-        color: white;
+        color: #fff;
         cursor: pointer;
       }
 
+      /* ✅ FIXED DROPDOWN STYLE */
       #cw-suggestions {
-        max-height: 150px;
+        position: absolute;
+        bottom: 50px;
+        left: 0;
+        right: 0;
+        max-height: 160px;
         overflow-y: auto;
-        border-top: 1px solid #ddd;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.15);
         display: none;
-        background: white;
+        z-index: 10000;
       }
 
       .cw-suggestion {
         padding: 8px;
         cursor: pointer;
         border-bottom: 1px solid #eee;
+        font-size: 14px;
       }
 
       .cw-suggestion:hover {
@@ -129,7 +159,9 @@
     `;
     document.head.appendChild(style);
 
-    // ================= UI =================
+    // =========================
+    // UI
+    // =========================
     const icon = document.createElement("div");
     icon.id = "cw-icon";
     icon.innerText = "🤖";
@@ -140,8 +172,9 @@
     box.innerHTML = `
       <div id="cw-header">Assistant</div>
       <div id="cw-messages"></div>
-      <div id="cw-suggestions"></div>
+
       <div id="cw-input">
+        <div id="cw-suggestions"></div>
         <input type="text" placeholder="Ask something..." />
         <button>Send</button>
       </div>
@@ -173,6 +206,9 @@
       suggestionsBox.style.display = "none";
     }
 
+    // =========================
+    // SEND MESSAGE
+    // =========================
     async function sendMessage() {
       const question = input.value.trim();
       if (!question) return;
@@ -195,10 +231,16 @@
       }
     }
 
+    // =========================
+    // 🔥 SUGGESTIONS (FIXED)
+    // =========================
     async function fetchSuggestions(keyword) {
       const clean = keyword.trim().toLowerCase();
 
-      if (!clean) return hideSuggestions();
+      if (!clean) {
+        hideSuggestions();
+        return;
+      }
 
       const { data } = await sb
         .from("faq_questions")
@@ -208,7 +250,10 @@
         .order("question", { ascending: true })
         .limit(5);
 
-      if (!data?.length) return hideSuggestions();
+      if (!data?.length) {
+        hideSuggestions();
+        return;
+      }
 
       suggestionsBox.innerHTML = "";
 
@@ -228,6 +273,9 @@
       suggestionsBox.style.display = "block";
     }
 
+    // =========================
+    // EVENTS
+    // =========================
     input.addEventListener("input", () => {
       clearTimeout(debounceTimer);
 
@@ -244,6 +292,9 @@
 
     button.onclick = sendMessage;
 
+    // =========================
+    // THEME
+    // =========================
     const { data } = await sb
       .from("chatbot_signups")
       .select("theme_color")
