@@ -230,10 +230,43 @@
     // 🔥 SUGGESTIONS (FIXED BEHAVIOR)
     // =========================
     async function fetchSuggestions(keyword) {
-      if (!keyword || keyword.length < 2) {
-        hideSuggestions();
-        return;
-      }
+  const clean = keyword.trim().toLowerCase();
+
+  if (!clean) {
+    hideSuggestions();
+    return;
+  }
+
+  const { data, error } = await sb
+    .from("faq_questions")
+    .select("question")
+    .eq("customer_id", customer_id)
+    .ilike("question", `${clean}%`)
+    .order("question", { ascending: true })
+    .limit(5);
+
+  if (error || !data || data.length === 0) {
+    hideSuggestions();
+    return;
+  }
+
+  suggestionsBox.innerHTML = "";
+
+  data.forEach((item) => {
+    const div = document.createElement("div");
+    div.className = "cw-suggestion";
+    div.innerText = item.question;
+
+    div.onclick = () => {
+      input.value = item.question;
+      hideSuggestions();
+    };
+
+    suggestionsBox.appendChild(div);
+  });
+
+  suggestionsBox.style.display = "block";
+}
 
       const { data, error } = await sb
         .from("faq_questions")
