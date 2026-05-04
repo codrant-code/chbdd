@@ -18,13 +18,10 @@
       return scriptTag.getAttribute("data-key");
     }
 
-    console.error("❌ Missing customer_id in widget");
+    console.error("❌ Missing customer_id");
     return null;
   }
 
-  // =========================
-  // LOAD SUPABASE
-  // =========================
   async function loadSupabase() {
     if (window.supabase) return;
 
@@ -133,7 +130,7 @@
       }
 
       #cw-suggestions {
-        max-height: 140px;
+        max-height: 160px;
         overflow-y: auto;
         border-top: 1px solid #ddd;
         display: none;
@@ -200,7 +197,7 @@
     }
 
     // =========================
-    // FAQ ANSWER
+    // SEND MESSAGE (ONLY ON USER ACTION)
     // =========================
     async function sendMessage() {
       const question = input.value.trim();
@@ -214,7 +211,8 @@
         .from("faq_questions")
         .select("question, answer")
         .eq("customer_id", customer_id)
-        .ilike("question", `%${question}%`);
+        .ilike("question", `%${question}%`)
+        .limit(1);
 
       if (error) {
         addMessage("Error fetching data", "cw-bot");
@@ -229,36 +227,38 @@
     }
 
     // =========================
-    // 🔥 SUGGESTIONS (FIXED & RESTORED)
+    // 🔥 SUGGESTIONS (FIXED BEHAVIOR)
     // =========================
     async function fetchSuggestions(keyword) {
-      if (!keyword) return;
+      if (!keyword || keyword.length < 2) {
+        hideSuggestions();
+        return;
+      }
 
       const { data, error } = await sb
         .from("faq_questions")
         .select("question")
         .eq("customer_id", customer_id)
         .ilike("question", `${keyword}%`)
+        .order("question", { ascending: true })
         .limit(5);
 
-      if (error || !data) return;
-
-      suggestionsBox.innerHTML = "";
-
-      if (data.length === 0) {
+      if (error || !data || data.length === 0) {
         hideSuggestions();
         return;
       }
+
+      suggestionsBox.innerHTML = "";
 
       data.forEach((item) => {
         const div = document.createElement("div");
         div.className = "cw-suggestion";
         div.innerText = item.question;
 
+        // IMPORTANT: NO auto-send
         div.onclick = () => {
           input.value = item.question;
           hideSuggestions();
-          sendMessage();
         };
 
         suggestionsBox.appendChild(div);
@@ -288,11 +288,11 @@
 
       debounceTimer = setTimeout(() => {
         fetchSuggestions(value);
-      }, 250);
+      }, 200);
     });
 
     // =========================
-    // THEME LOAD
+    // THEME
     // =========================
     const { data } = await sb
       .from("chatbot_signups")
