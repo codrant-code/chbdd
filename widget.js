@@ -1,34 +1,52 @@
 (function () {
-  console.log("Widget loaded");
+  console.log("🤖 Chatbot Widget Loaded");
 
-  // 🔗 Supabase config
   const SUPABASE_URL = "https://nwldvgafmyaagmyezena.supabase.co";
   const SUPABASE_KEY = "sb_publishable_gWMY1sQRn3fqip0JfAQPRQ_F79rlYyZ";
 
-  // ✅ Load Supabase if not present
+  // =========================
+  // GET CUSTOMER ID (FIXED)
+  // =========================
+  function getCustomerId() {
+    if (document.currentScript) {
+      const key = document.currentScript.getAttribute("data-key");
+      if (key) return key;
+    }
+
+    const scriptTag = document.querySelector("script[data-key]");
+    if (scriptTag) {
+      return scriptTag.getAttribute("data-key");
+    }
+
+    console.error("❌ Chatbot: customer_id not found");
+    return null;
+  }
+
   function loadScript(src) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const s = document.createElement("script");
       s.src = src;
       s.onload = resolve;
+      s.onerror = reject;
       document.head.appendChild(s);
     });
   }
 
   async function init() {
+    const customer_id = getCustomerId();
+    if (!customer_id) return;
+
     if (!window.supabase) {
       await loadScript("https://unpkg.com/@supabase/supabase-js@2");
     }
 
     const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // ✅ Get user key
-    const scriptTag = document.currentScript;
-    const signup_id = scriptTag?.getAttribute("data-key") || "38";
-
     let debounceTimer;
 
-    // 🎨 Inject styles
+    // =========================
+    // UI STYLES
+    // =========================
     const style = document.createElement("style");
     style.innerHTML = `
       #cw-icon {
@@ -37,29 +55,34 @@
         right: 20px;
         background: #007bff;
         color: #fff;
-        padding: 12px;
+        padding: 14px;
         border-radius: 50%;
         cursor: pointer;
         z-index: 9999;
+        font-size: 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
       }
 
       #cw-box {
         position: fixed;
-        bottom: 70px;
+        bottom: 80px;
         right: 20px;
         width: 320px;
         height: 420px;
         background: #fff;
-        border: 1px solid #ccc;
+        border-radius: 12px;
+        border: 1px solid #ddd;
         display: none;
         flex-direction: column;
         z-index: 9999;
         font-family: Arial;
+        overflow: hidden;
       }
 
       #cw-header {
         padding: 10px;
         color: #fff;
+        font-weight: bold;
       }
 
       #cw-messages {
@@ -69,54 +92,67 @@
       }
 
       .cw-msg {
-        margin-bottom: 8px;
+        margin: 6px 0;
+        padding: 6px 10px;
+        border-radius: 8px;
+        max-width: 80%;
       }
 
       .cw-user {
         text-align: right;
-        font-weight: bold;
+        background: #e6f0ff;
+        margin-left: auto;
       }
 
       .cw-bot {
         text-align: left;
+        background: #f1f1f1;
+        margin-right: auto;
       }
 
       #cw-input {
         display: flex;
+        border-top: 1px solid #ccc;
       }
 
       #cw-input input {
         flex: 1;
-        padding: 8px;
+        padding: 10px;
         border: none;
-        border-top: 1px solid #ccc;
+        outline: none;
       }
 
       #cw-input button {
-        padding: 8px;
+        padding: 10px;
         border: none;
         color: #fff;
         cursor: pointer;
       }
 
       #cw-suggestions {
-        background: #f9f9f9;
+        max-height: 120px;
+        overflow-y: auto;
+        background: #fff;
         border-top: 1px solid #ddd;
         display: none;
       }
 
       .cw-suggestion {
-        padding: 6px;
+        padding: 8px;
         cursor: pointer;
+        border-bottom: 1px solid #eee;
+        font-size: 14px;
       }
 
       .cw-suggestion:hover {
-        background: #eee;
+        background: #f5f5f5;
       }
     `;
     document.head.appendChild(style);
 
-    // 🧩 Create UI
+    // =========================
+    // UI
+    // =========================
     const icon = document.createElement("div");
     icon.id = "cw-icon";
     icon.innerText = "🤖";
@@ -137,7 +173,6 @@
     document.body.appendChild(icon);
     document.body.appendChild(box);
 
-    // Toggle
     icon.onclick = () => {
       box.style.display = box.style.display === "flex" ? "none" : "flex";
     };
@@ -160,6 +195,9 @@
       suggestionsBox.style.display = "none";
     }
 
+    // =========================
+    // SEND MESSAGE (FIXED QUERY)
+    // =========================
     async function sendMessage() {
       const question = input.value.trim();
       if (!question) return;
@@ -171,10 +209,11 @@
       const { data, error } = await sb
         .from("faq_questions")
         .select("question, answer")
-        .eq("signup_id", signup_id)
+        .eq("customer_id", customer_id)   // ✅ FIXED
         .ilike("question", "%" + question + "%");
 
       if (error) {
+        console.error(error);
         addMessage("Error fetching data", "cw-bot");
         return;
       }
@@ -186,11 +225,14 @@
       }
     }
 
+    // =========================
+    // SUGGESTIONS (FIXED)
+    // =========================
     async function fetchSuggestions(keyword) {
       const { data, error } = await sb
         .from("faq_questions")
         .select("question")
-        .eq("signup_id", signup_id)
+        .eq("customer_id", customer_id)   // ✅ FIXED
         .ilike("question", keyword + "%")
         .limit(5);
 
@@ -223,7 +265,6 @@
 
     input.addEventListener("input", () => {
       const value = input.value.trim();
-
       clearTimeout(debounceTimer);
 
       if (!value) {
@@ -236,18 +277,25 @@
       }, 300);
     });
 
-    // 🎨 Apply theme
-    const { data } = await sb
-      .from("chatbot_signups")
-      .select("theme_color")
-      .eq("id", signup_id)
-      .single();
+    // =========================
+    // THEME (FIXED)
+    // =========================
+    try {
+      const { data, error } = await sb
+        .from("chatbot_signups")
+        .select("theme_color")
+        .eq("customer_id", customer_id)   // ✅ FIXED
+        .single();
 
-    const color = data?.theme_color || "#007bff";
-
-    icon.style.background = color;
-    header.style.background = color;
-    button.style.background = color;
+      if (!error && data) {
+        const color = data.theme_color || "#007bff";
+        icon.style.background = color;
+        header.style.background = color;
+        button.style.background = color;
+      }
+    } catch (err) {
+      console.error("Theme error:", err);
+    }
   }
 
   init();
