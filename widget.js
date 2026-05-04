@@ -4,9 +4,6 @@
   const SUPABASE_URL = "https://nwldvgafmyaagmyezena.supabase.co";
   const SUPABASE_KEY = "sb_publishable_gWMY1sQRn3fqip0JfAQPRQ_F79rlYyZ";
 
-  // =========================
-  // GET CUSTOMER ID
-  // =========================
   function getCustomerId() {
     if (document.currentScript) {
       const key = document.currentScript.getAttribute("data-key");
@@ -14,22 +11,19 @@
     }
 
     const scriptTag = document.querySelector("script[data-key]");
-    if (scriptTag) {
-      return scriptTag.getAttribute("data-key");
-    }
+    if (scriptTag) return scriptTag.getAttribute("data-key");
 
-    console.error("❌ Missing customer_id");
+    console.error("Missing customer_id");
     return null;
   }
 
   async function loadSupabase() {
     if (window.supabase) return;
-
-    await new Promise((resolve, reject) => {
+    await new Promise((res, rej) => {
       const s = document.createElement("script");
       s.src = "https://unpkg.com/@supabase/supabase-js@2";
-      s.onload = resolve;
-      s.onerror = reject;
+      s.onload = res;
+      s.onerror = rej;
       document.head.appendChild(s);
     });
   }
@@ -44,9 +38,7 @@
 
     let debounceTimer;
 
-    // =========================
-    // STYLES
-    // =========================
+    // ================= UI =================
     const style = document.createElement("style");
     style.innerHTML = `
       #cw-icon {
@@ -59,8 +51,6 @@
         border-radius: 50%;
         cursor: pointer;
         z-index: 9999;
-        font-size: 20px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
       }
 
       #cw-box {
@@ -69,14 +59,13 @@
         right: 20px;
         width: 320px;
         height: 420px;
-        background: white;
-        border-radius: 12px;
+        background: #fff;
         border: 1px solid #ddd;
+        border-radius: 12px;
         display: none;
         flex-direction: column;
         z-index: 9999;
         font-family: Arial;
-        overflow: hidden;
       }
 
       #cw-header {
@@ -98,17 +87,8 @@
         max-width: 80%;
       }
 
-      .cw-user {
-        text-align: right;
-        background: #e6f0ff;
-        margin-left: auto;
-      }
-
-      .cw-bot {
-        text-align: left;
-        background: #f1f1f1;
-        margin-right: auto;
-      }
+      .cw-user { background: #e6f0ff; margin-left: auto; text-align: right; }
+      .cw-bot { background: #f1f1f1; margin-right: auto; text-align: left; }
 
       #cw-input {
         display: flex;
@@ -130,18 +110,17 @@
       }
 
       #cw-suggestions {
-        max-height: 160px;
+        max-height: 150px;
         overflow-y: auto;
         border-top: 1px solid #ddd;
         display: none;
-        background: #fff;
+        background: white;
       }
 
       .cw-suggestion {
         padding: 8px;
         cursor: pointer;
         border-bottom: 1px solid #eee;
-        font-size: 14px;
       }
 
       .cw-suggestion:hover {
@@ -150,9 +129,7 @@
     `;
     document.head.appendChild(style);
 
-    // =========================
-    // UI
-    // =========================
+    // ================= UI =================
     const icon = document.createElement("div");
     icon.id = "cw-icon";
     icon.innerText = "🤖";
@@ -192,13 +169,10 @@
     }
 
     function hideSuggestions() {
-      suggestionsBox.style.display = "none";
       suggestionsBox.innerHTML = "";
+      suggestionsBox.style.display = "none";
     }
 
-    // =========================
-    // SEND MESSAGE (ONLY ON USER ACTION)
-    // =========================
     async function sendMessage() {
       const question = input.value.trim();
       if (!question) return;
@@ -207,79 +181,34 @@
       input.value = "";
       hideSuggestions();
 
-      const { data, error } = await sb
+      const { data } = await sb
         .from("faq_questions")
-        .select("question, answer")
+        .select("answer")
         .eq("customer_id", customer_id)
         .ilike("question", `%${question}%`)
         .limit(1);
 
-      if (error) {
-        addMessage("Error fetching data", "cw-bot");
-        return;
-      }
-
-      if (data && data.length > 0) {
+      if (data?.length) {
         addMessage(data[0].answer, "cw-bot");
       } else {
         addMessage("Sorry, I don't know that.", "cw-bot");
       }
     }
 
-    // =========================
-    // 🔥 SUGGESTIONS (FIXED BEHAVIOR)
-    // =========================
     async function fetchSuggestions(keyword) {
-  const clean = keyword.trim().toLowerCase();
+      const clean = keyword.trim().toLowerCase();
 
-  if (!clean) {
-    hideSuggestions();
-    return;
-  }
+      if (!clean) return hideSuggestions();
 
-  const { data, error } = await sb
-    .from("faq_questions")
-    .select("question")
-    .eq("customer_id", customer_id)
-    .ilike("question", `${clean}%`)
-    .order("question", { ascending: true })
-    .limit(5);
-
-  if (error || !data || data.length === 0) {
-    hideSuggestions();
-    return;
-  }
-
-  suggestionsBox.innerHTML = "";
-
-  data.forEach((item) => {
-    const div = document.createElement("div");
-    div.className = "cw-suggestion";
-    div.innerText = item.question;
-
-    div.onclick = () => {
-      input.value = item.question;
-      hideSuggestions();
-    };
-
-    suggestionsBox.appendChild(div);
-  });
-
-  suggestionsBox.style.display = "block";
-}
-
-      const { data, error } = await sb
+      const { data } = await sb
         .from("faq_questions")
         .select("question")
         .eq("customer_id", customer_id)
-        .ilike("question", `${keyword}%`)
+        .ilike("question", `${clean}%`)
         .order("question", { ascending: true })
         .limit(5);
 
-      if (error || !data || data.length === 0) {
-        hideSuggestions();
-        return;
-      }
+      if (!data?.length) return hideSuggestions();
 
       suggestionsBox.innerHTML = "";
 
@@ -288,7 +217,6 @@
         div.className = "cw-suggestion";
         div.innerText = item.question;
 
-        // IMPORTANT: NO auto-send
         div.onclick = () => {
           input.value = item.question;
           hideSuggestions();
@@ -300,33 +228,22 @@
       suggestionsBox.style.display = "block";
     }
 
-    // =========================
-    // EVENTS
-    // =========================
-    input.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") sendMessage();
-    });
-
-    button.onclick = sendMessage;
-
     input.addEventListener("input", () => {
-      const value = input.value.trim();
-
       clearTimeout(debounceTimer);
 
-      if (!value) {
-        hideSuggestions();
-        return;
-      }
+      const value = input.value.trim();
 
       debounceTimer = setTimeout(() => {
         fetchSuggestions(value);
       }, 200);
     });
 
-    // =========================
-    // THEME
-    // =========================
+    input.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
+
+    button.onclick = sendMessage;
+
     const { data } = await sb
       .from("chatbot_signups")
       .select("theme_color")
