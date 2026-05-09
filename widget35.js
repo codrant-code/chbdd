@@ -31,8 +31,15 @@
   let user_id = localStorage.getItem("cw_user_id");
 
   if (!user_id) {
-    // Use the built-in browser API to generate a UUID
-    user_id = self.crypto.randomUUID(); 
+    // Check if randomUUID is available (requires HTTPS/Secure Context)
+    if (self.crypto && typeof self.crypto.randomUUID === 'function') {
+      user_id = self.crypto.randomUUID();
+    } else {
+      // Fallback: Manual UUID v4 generation using getRandomValues
+      user_id = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+      );
+    }
     localStorage.setItem("cw_user_id", user_id);
   }
 
