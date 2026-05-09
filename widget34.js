@@ -31,7 +31,8 @@
   let user_id = localStorage.getItem("cw_user_id");
 
   if (!user_id) {
-    user_id = generateUUID();
+    // Use the built-in browser API to generate a UUID
+    user_id = self.crypto.randomUUID(); 
     localStorage.setItem("cw_user_id", user_id);
   }
 
